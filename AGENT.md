@@ -1,5 +1,7 @@
 # AGENT.md — Config Repository Guide
 
+**GitHub:** https://github.com/spring-config-demo/config-file
+
 ## What This Repo Is
 
 A Git-backed Spring Cloud Config repository. It holds `.properties` files that a Spring Cloud Config Server reads and serves to client microservices. This is **configuration only** — no application code lives here.
@@ -40,11 +42,20 @@ Global files use the reserved Spring name: `application-<profile>.properties`
 ## Testing Changes Locally
 
 ```bash
-# Start Config Server pointing at this repo (adjust port/path as needed)
+# Fetch config from running Config Server (default port 8888)
 curl http://localhost:8888/order-service/dev
 ```
 
 Expected response contains a `propertySources` array — verify your new property appears with the correct value.
+
+### Triggering a live refresh on a client (no restart needed)
+
+```bash
+# After pushing a change to this repo, call the client's refresh endpoint
+POST http://localhost:<client-port>/actuator/refresh
+```
+
+This only reloads beans annotated with `@RefreshScope` on the client. Beans without it keep the startup value until the next restart.
 
 ## Current Services
 
@@ -57,6 +68,8 @@ Expected response contains a `propertySources` array — verify your new propert
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
-| Client gets global value instead of service-specific | Service name in client does not match file prefix | Check `spring.application.name` on the client |
-| Property not refreshed after commit | Client has not called `/actuator/refresh` | Call the refresh endpoint or restart the client |
+| Client gets global value instead of service-specific | `spring.application.name` on the client does not match the file prefix | Align the client's app name with the properties filename prefix |
+| Property not refreshed after commit | Client has not called `/actuator/refresh`, or actuator endpoint not exposed | Call `POST /actuator/refresh`; ensure `management.endpoints.web.exposure.include=refresh` |
+| `/actuator/refresh` succeeds but bean still has old value | The bean is not annotated with `@RefreshScope` | Add `@RefreshScope` to the bean (demonstrated in commits `ec38660` → `9e87130`) |
 | Profile fallback unexpected | Profile-specific file missing | Add the missing `<service>-<profile>.properties` |
+| Config Server returns 404 for a service | Service folder not in `search-paths` config | Add the folder path (or a `*` wildcard) to `spring.cloud.config.server.git.search-paths` |

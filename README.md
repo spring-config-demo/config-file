@@ -1,5 +1,7 @@
 # Spring Cloud Config - Configuration Repository
 
+> **GitHub:** https://github.com/spring-config-demo/config-file
+
 This repository serves as the **Git-backed configuration store** for a Spring Cloud Config Server. It holds externalized configuration files for multiple services across different environments.
 
 ## Repository Structure
@@ -65,9 +67,44 @@ A sample property used to verify that the correct profile and service configurat
 | `global/application-qa.properties`           | `Hello from global qa`          |
 | `global/application-prod.properties`         | `Hello from global prod`        |
 | `orderService/order-service.properties`      | `Hello from orderService git`   |
-| `orderService/order-service-dev.properties`  | `Hello from orderService dev`   |
+| `orderService/order-service-dev.properties`  | `Hello from orderService dev - updated WITH refresh scope` |
 | `orderService/order-service-qa.properties`   | `Hello from orderService qa`    |
 | `orderService/order-service-prod.properties` | `Hello from orderService prod`  |
+
+## Live Config Refresh with `@RefreshScope`
+
+Spring Cloud Config supports refreshing a running client's properties **without a restart** using Spring Actuator.
+
+### How it works
+
+1. Push a config change to this repo.
+2. Call the client's refresh endpoint:
+   ```bash
+   POST http://<client-host>:<port>/actuator/refresh
+   ```
+3. Any bean annotated with `@RefreshScope` on the client reloads its injected properties.
+
+### Client-side requirements
+
+```java
+// In the client microservice
+@RefreshScope
+@RestController
+public class MessageController {
+    @Value("${custom.message}")
+    private String message;
+    // ...
+}
+```
+
+The `spring-boot-actuator` dependency and the following config must be present in the client:
+
+```properties
+# application.properties on the client
+management.endpoints.web.exposure.include=refresh
+```
+
+> Without `@RefreshScope`, the bean retains the value it had at startup even after `/actuator/refresh` is called. This was demonstrated in commits `ec38660` (without) and `9e87130` (with refresh scope).
 
 ## Adding a New Service
 
