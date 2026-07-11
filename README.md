@@ -106,6 +106,61 @@ management.endpoints.web.exposure.include=refresh
 
 > Without `@RefreshScope`, the bean retains the value it had at startup even after `/actuator/refresh` is called. This was demonstrated in commits `ec38660` (without) and `9e87130` (with refresh scope).
 
+## Spring Cloud Bus with RabbitMQ
+
+Spring Cloud Bus connects all client microservices via a message broker so a **single** `/actuator/busrefresh` call propagates config changes to every service at once — no need to refresh each client individually.
+
+RabbitMQ is used as the message broker, run via Docker following the official recommendation.
+
+### Prerequisites
+
+- Docker Desktop installed and running
+
+### Start RabbitMQ
+
+```bash
+# RabbitMQ 4.x with management UI
+docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4-management
+```
+
+| Port    | Purpose                          |
+|---------|----------------------------------|
+| `5672`  | AMQP — used by Spring Cloud Bus  |
+| `15672` | Management UI                    |
+
+### RabbitMQ Management UI
+
+Open in browser: http://localhost:15672/#/
+
+Default credentials: `guest` / `guest`
+
+### Broadcast a config refresh to all services
+
+```bash
+# Push config change to this repo, then call busrefresh on any one client or the Config Server
+POST http://<host>:<port>/actuator/busrefresh
+```
+
+All connected services reload their `@RefreshScope` beans automatically.
+
+### Client-side dependency
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-bus-amqp</artifactId>
+</dependency>
+```
+
+Spring Boot auto-configures the RabbitMQ connection using defaults (`localhost:5672`, `guest/guest`). Override in `application.properties` if needed:
+
+```properties
+spring.rabbitmq.host=localhost
+spring.rabbitmq.port=5672
+spring.rabbitmq.username=guest
+spring.rabbitmq.password=guest
+```
+
 ## Adding a New Service
 
 1. Create a new folder named after the service (e.g., `paymentService/`).
